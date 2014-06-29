@@ -5,6 +5,8 @@
 // @version      1.0.11
 // @include      http://*.donmai.us/*
 // @include      http://donmai.us/*
+// @include      https://*.donmai.us/*
+// @include      https://donmai.us/*
 // ==/UserScript==
 
 //known issue: some meta-tags in your blacklist may be ignored by endless pages, just ask me if you want a specific one/few to work.
