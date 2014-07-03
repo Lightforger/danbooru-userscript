@@ -2,7 +2,7 @@
 // @name         Danbooru 2 Tweaks & Features
 // @description  For danbooru.donmai (2) - Changes around the layout of the page and adds some misc features.
 // @namespace    itsonlyaname
-// @version      1.0.11
+// @version      1.0.12
 // @include      http://*.donmai.us/*
 // @include      http://donmai.us/*
 // @include      https://*.donmai.us/*
@@ -69,7 +69,7 @@ var enable_customBlacklist=0;
 var loc = location.href,
     ep_disableScroll=false,
     ep_currentPage,
-    ep_lockQuerry=false,
+    ep_lockQuery=false,
     ep_poolsPostlist,
     ep_poolsToQueryList,
     ep_poolsKeepcount=0,
@@ -794,7 +794,7 @@ function endlessPages_init() {
 
     //get page number from bottom page selector (will break if danbooru moves elements around)    
     try {
-      if (document.getElementsByClassName('paginator')[0].firstChild.childNodes.length == 1 && !ep_rs) return; //single-page result detected
+      if (document.getElementsByClassName('paginator')[0].firstChild.childNodes.length == 1) return; //single-page result detected
       paginator = parseInt(paginator.innerHTML, 10);
       ep_currentPage = paginator;
     } catch (e) {
@@ -931,8 +931,11 @@ function ep_paginator() { //lots of code, but should be pretty efficient in term
 
 
 function ep_postsList(add) {
-  if (add == undefined && (!ep_lockQuerry)) { //no value given, query next page of posts (which upon completion calls this function again with the json result)
-    ep_lockQuerry = true;
+  var div_posts = $x("//div[@id='posts']")[0];
+  if (div_posts.style.display == "none" && !ep_lockQuery) return; //if viewing the wiki page, don't allow a new query to start (but do allow a in-progress query to finish)
+  
+  if (add == undefined && (!ep_lockQuery)) { //no value given, query next page of posts (which upon completion calls this function again with the json result)
+    ep_lockQuery = true;
     var t4="";
     if(loc.indexOf('tags=')!=-1) t4=loc.substring(loc.indexOf('tags=')+5);
     if(t4.indexOf('&')!=-1) t4=t4.substring(0,t4.indexOf('&'));
@@ -941,7 +944,7 @@ function ep_postsList(add) {
   }
   else if (add && add.indexOf('{"success": false, "message":') !== -1) {
     to_log('An unknown error occured: '+add,true);
-    ep_lockQuerry = false;
+    ep_lockQuery = false;
   }
   else if (add && (!ep_disableScroll)) {
     if (add == "[]\n" || add == "[]") {
@@ -956,7 +959,7 @@ function ep_postsList(add) {
       style: "display:inline-block; float: left; height:154px; margin:0px 10px 10px 0px; overflow:hidden; text-align:center; vertical-align:baseline; width:154px;"
     });
     pg_ind.innerHTML = "<br/><br/>Page " + (ep_currentPage + 1) + "~";
-    $x("//div[@id='posts']")[0].insertBefore(pg_ind, $x("//div[@id='posts']/div[@class='paginator']")[0]);
+    div_posts.insertBefore(pg_ind, $x("//div[@id='posts']/div[@class='paginator']")[0]);
     for (post in add) {
       
       if ($x("//article[@data-id='" + add[post].id + "']")[0]) {
@@ -1006,15 +1009,15 @@ function ep_postsList(add) {
           + "\n score:" + add[post].score
       });
       //append article element, insert other nodes with outerHTML - outerHTML might not be compatible with older browsers
-      $x("//div[@id='posts']")[0].insertBefore(art, $x("//div[@id='posts']/div[@class='paginator']")[0]);
+      div_posts.insertBefore(art, $x("//div[@id='posts']/div[@class='paginator']")[0]);
       document.getElementById("post_" + add[post].id).innerHTML = art_a.outerHTML;
       document.getElementById("post_" + add[post].id).firstChild.innerHTML = art_a_img.outerHTML;
     }
     ep_currentPage++;
     if(settings_json.enable_ep_paginator) ep_paginator();
-    //only allow the next querry in half a second, small but effective delay.
+    //only allow the next query in half a second, small but effective delay.
     //firefox/chrome-compatible timeout
-    setTimeout(function () { ep_lockQuerry = false; ep_scroll()(); }, 500);
+    setTimeout(function () { ep_lockQuery = false; ep_scroll()(); }, 500);
   }
 }
 
@@ -1046,9 +1049,9 @@ function ep_pools_get_postlist(list) {
 
 function ep_pools(add) {
   if (!ep_poolsPostlist) return;
-  if (add == undefined && (!ep_lockQuerry)) {
-    ep_lockQuerry = true;
-    //begin building list of posts to querry
+  if (add == undefined && (!ep_lockQuery)) {
+    ep_lockQuery = true;
+    //begin building list of posts to query
     var t1 = 0;
     ep_poolsToQueryList = [];
     for (i = (ep_currentPage * 20); i < ep_poolsPostlist.length; i++) {
@@ -1145,7 +1148,7 @@ function ep_pools(add) {
     }
     ep_currentPage++;
     if(settings_json.enable_ep_paginator) ep_paginator();
-    setTimeout(function () { ep_lockQuerry = false; ep_scroll()(); }, 500);
+    setTimeout(function () { ep_lockQuery = false; ep_scroll()(); }, 500);
   }
 }
 
@@ -1291,7 +1294,7 @@ function ep_browsePools_getList(list, isPool) {
     var query = "/pools/" + list + ".json";
     $q(query, ep_browsePools_getList, undefined, 1);
   }
-  else if (list && !isPool) { //reacts to "get posts in pool" querry
+  else if (list && !isPool) { //reacts to "get posts in pool" query
     list = JSON.parse(list);
     if (list.post_ids) {
       ep_browsePools_list = list.post_ids;;
@@ -1305,9 +1308,9 @@ function ep_browsePools_getList(list, isPool) {
 var temp_doc; //these could go as local vars, but doesn't matter too much - makes debugging/updating a lot easier
 var temp_id;
 function ep_browsePools(post) {
-  if (!ep_browsePools_list) return; //don't have list yet, can't querry next
-  if (!post && !ep_lockQuerry) {
-    ep_lockQuerry = true;      //lock - don't allow a second query to start before the first one finished
+  if (!ep_browsePools_list) return; //don't have list yet, can't query next
+  if (!post && !ep_lockQuery) {
+    ep_lockQuery = true;      //lock - don't allow a second query to start before the first one finished
     var next_id = null;        //find out what post to add next from the pool
     var current_index = null;
     if (document.getElementsByClassName('ep-browse-spacer').length > 0) {
@@ -1329,8 +1332,7 @@ function ep_browsePools(post) {
     }
     var query = '/posts/' + next_id + '?pool_id=' + ep_browsePools_poolID;
     $q(query, ep_browsePools, undefined, 1);
-  }
-  
+  }  
   else if (post) {
     temp_doc = document.implementation.createHTMLDocument("temp"); //getting the entire page is slower then an api call, but
     temp_doc.documentElement.innerHTML = post;                     //most likely faster then 3-4 calls to get the comments, picture, notes, etc.
@@ -1346,7 +1348,7 @@ function ep_browsePools(post) {
       document.getElementById('a-show').appendChild($c("div", { class: 'ep-browse-spacer' }));
       temp_ep_container_.appendChild(temp_image_container.getElementsByTagName('p')[0]);
       document.getElementById('a-show').appendChild(temp_ep_container_);
-      ep_lockQuerry = false; //unlocked, lets the next query begin
+      ep_lockQuery = false; //unlocked, lets the next query begin
       ep_scroll()(); //fire a scroll event since the added element is very small and the user may not need to scroll.
       return;
     }
@@ -1645,10 +1647,10 @@ function ep_browsePools(post) {
     
     
     
-    ep_lockQuerry=false; //unlocked, lets the next query begin
+    ep_lockQuery=false; //unlocked, lets the next query begin
     
     //yes-no? haven't had to use/test this yet
-    //var anti_stuck=null; clearTimeout(anti_stuck); setTimeout(function() { ep_lockQuerry=false },6000);
+    //var anti_stuck=null; clearTimeout(anti_stuck); setTimeout(function() { ep_lockQuery=false },6000);
   }
 }
 
